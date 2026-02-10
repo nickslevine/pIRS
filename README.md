@@ -33,11 +33,11 @@ npx pirs --remove
 
 | Command | Description |
 |---------|-------------|
-| `/bash-stats` | Show token usage grouped by command type (default) |
-| `/bash-stats all` | Show all individual commands with timestamps |
-| `/bash-stats top` | Show top 10 commands by token output |
-| `/bash-stats-reset` | Clear all tracking data |
-| `/bash-stats-export` | Export tracking data to `.pi/bash-stats-<timestamp>.json` |
+| `/pirs` | Show token usage grouped by command type (default) |
+| `/pirs all` | Show all individual commands with timestamps |
+| `/pirs top` | Show top 10 commands by token output |
+| `/pirs-reset` | Clear all tracking data |
+| `/pirs-export` | Export tracking data to `.pi/pirs-<timestamp>.json` |
 
 ## How It Works
 

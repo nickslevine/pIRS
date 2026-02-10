@@ -86,9 +86,9 @@ if (fs.existsSync(EXTENSION_DIR)) {
 
 console.log(`
 pIRS is now available in pi. Commands added:
-  • /bash-stats          View bash command token usage (group, all, top)
-  • /bash-stats-reset    Reset tracking data
-  • /bash-stats-export   Export data to JSON
+  • /pirs          View bash command token usage (group, all, top)
+  • /pirs-reset    Reset tracking data
+  • /pirs-export   Export data to JSON
 
 A status widget shows live stats in the TUI.
 `);

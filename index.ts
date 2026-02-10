@@ -149,8 +149,8 @@ export default function (pi: ExtensionAPI) {
 		ctx.ui?.setWidget("bash-tracker", [line]);
 	}
 
-	// /bash-stats command - show aggregated stats
-	pi.registerCommand("bash-stats", {
+	// /pirs command - show aggregated stats
+	pi.registerCommand("pirs", {
 		description: "Show bash command token usage statistics",
 		handler: async (args, ctx) => {
 			if (records.length === 0) {
@@ -233,8 +233,8 @@ export default function (pi: ExtensionAPI) {
 		},
 	});
 
-	// /bash-stats-reset command
-	pi.registerCommand("bash-stats-reset", {
+	// /pirs-reset command
+	pi.registerCommand("pirs-reset", {
 		description: "Reset bash token tracking data",
 		handler: async (_args, ctx) => {
 			const count = records.length;
@@ -245,8 +245,8 @@ export default function (pi: ExtensionAPI) {
 		},
 	});
 
-	// /bash-stats-export command — dump to a JSON file
-	pi.registerCommand("bash-stats-export", {
+	// /pirs-export command — dump to a JSON file
+	pi.registerCommand("pirs-export", {
 		description: "Export bash token tracking data to a JSON file",
 		handler: async (_args, ctx) => {
 			if (records.length === 0) {
@@ -254,7 +254,7 @@ export default function (pi: ExtensionAPI) {
 				return;
 			}
 
-			const filename = `.pi/bash-stats-${Date.now()}.json`;
+			const filename = `.pi/pirs-${Date.now()}.json`;
 			const data = {
 				exported: new Date().toISOString(),
 				summary: {
