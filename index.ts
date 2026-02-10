@@ -31,17 +31,19 @@ interface BashRecord {
 // A pattern matches if the command contains it as a substring.
 const COMMAND_GROUPS: [string, ...string[]][] = [
 	["pytest", "pytest", "python3 -m pytest", "python -m pytest"],
-	["vitest", "vitest", "npx vitest"],
-	["jest", "jest", "npx jest"],
-	["tsc", "tsc", "npx tsc"],
-	["eslint", "eslint", "npx eslint"],
-	["npm/pnpm install", "npm install", "npm ci", "pnpm install", "pnpm i"],
-	["npm/pnpm run", "npm run", "pnpm run", "pnpm exec"],
+	["vitest", "vitest"],
+	["jest", "jest"],
+	["tsc", "tsc"],
+	["eslint", "eslint"],
+	["npm install", "npm install", "npm ci", "pnpm install", "pnpm i", "bun install", "bun add"],
+	["npm run", "npm run", "pnpm run", "pnpm exec", "bun run"],
+	["npm", "npm ", "pnpm ", "bun "],
 	["git", "git "],
 	["grep/rg", "grep ", "rg "],
 	["find", "find "],
 	["cat/head/tail", "cat ", "head ", "tail "],
 	["ls", "ls "],
+	["file ops", "cp ", "mv ", "mkdir ", "rm ", "rmdir ", "chmod ", "chown ", "ln ", "touch "],
 	["docker", "docker "],
 	["curl/wget", "curl ", "wget "],
 	["pip", "pip install", "pip3 install"],
@@ -50,11 +52,41 @@ const COMMAND_GROUPS: [string, ...string[]][] = [
 	["make", "make "],
 ];
 
+// Extract the first real command from a string, skipping cd/env prefixes
+function extractBaseCommand(command: string): string {
+	let cmd = command.trim();
+	// Strip leading "cd ... &&" or "cd ...;"
+	cmd = cmd.replace(/^(cd\s+[^;&]+[;&]\s*)+/, "");
+	// Strip leading env vars like FOO=bar
+	cmd = cmd.replace(/^(\w+=\S+\s+)+/, "");
+	return cmd.trim();
+}
+
+// Extract npx/bunx subcommand name
+function extractRunnerCommand(base: string, runner: string): string | null {
+	const match = base.match(new RegExp(`${runner}\\s+(?:--\\s+)?([\\w@/.:-]+)`));
+	if (!match) return null;
+	// Strip scope/version: @foo/bar@1.0 -> @foo/bar, plain-name -> plain-name
+	const pkg = match[1].replace(/@[\d^~>=<.*]+$/, "");
+	return pkg;
+}
+
 function classifyCommand(command: string): string {
-	const trimmed = command.trim();
+	const base = extractBaseCommand(command);
+
+	// Dynamic grouping for npx/bunx — each subcommand gets its own group
+	for (const runner of ["npx", "bunx"]) {
+		if (base.startsWith(`${runner} `)) {
+			const sub = extractRunnerCommand(base, runner);
+			if (sub) return `${runner} ${sub}`;
+			return runner;
+		}
+	}
+
+	// Static pattern matching
 	for (const [groupName, ...patterns] of COMMAND_GROUPS) {
 		for (const pattern of patterns) {
-			if (trimmed.includes(pattern)) {
+			if (base.includes(pattern)) {
 				return groupName;
 			}
 		}
