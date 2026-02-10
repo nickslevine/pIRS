@@ -48,7 +48,10 @@ const COMMAND_GROUPS: [string, ...string[]][] = [
 	["file ops", "cp ", "mv ", "mkdir ", "rm ", "rmdir ", "chmod ", "chown ", "ln ", "touch "],
 	["docker", "docker "],
 	["curl/wget", "curl ", "wget "],
-	["cargo", "cargo build", "cargo test", "cargo run"],
+	["cargo test", "cargo test"],
+	["cargo fmt", "cargo fmt"],
+	["cargo clippy", "cargo clippy"],
+	["cargo", "cargo "],
 	["go", "go build", "go test", "go run"],
 	["make", "make "],
 ];
