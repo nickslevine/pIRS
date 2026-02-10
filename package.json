@@ -1,0 +1,37 @@
+{
+  "name": "pirs",
+  "version": "1.0.0",
+  "description": "Pi extension that tracks bash tool token usage with stats, grouping, and export",
+  "author": "nlevine",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nickslevine/pIRS.git"
+  },
+  "homepage": "https://github.com/nickslevine/pIRS#readme",
+  "bugs": {
+    "url": "https://github.com/nickslevine/pIRS/issues"
+  },
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-coding-agent",
+    "bash",
+    "tokens",
+    "usage",
+    "monitoring"
+  ],
+  "bin": {
+    "pirs": "install.mjs"
+  },
+  "files": [
+    "*.ts",
+    "*.mjs",
+    "README.md"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

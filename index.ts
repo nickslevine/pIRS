@@ -1,0 +1,277 @@
+/**
+ * Bash Token Tracker
+ *
+ * Monitors every bash tool invocation and records:
+ * - The command executed
+ * - The output size (characters and estimated tokens)
+ * - Timestamp
+ *
+ * Provides /bash-stats command to view aggregated data,
+ * with grouping by command pattern (e.g., pytest vs vitest).
+ *
+ * Token estimation: ~4 chars per token (rough approximation).
+ */
+
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { isToolCallEventType, isBashToolResult } from "@mariozechner/pi-coding-agent";
+
+const CHARS_PER_TOKEN = 4;
+
+interface BashRecord {
+	timestamp: number;
+	command: string;
+	outputChars: number;
+	estimatedTokens: number;
+	truncated: boolean;
+	isError: boolean;
+}
+
+// Pattern groups for categorization.
+// Each entry: [groupName, ...matchPatterns]
+// A pattern matches if the command contains it as a substring.
+const COMMAND_GROUPS: [string, ...string[]][] = [
+	["pytest", "pytest", "python3 -m pytest", "python -m pytest"],
+	["vitest", "vitest", "npx vitest"],
+	["jest", "jest", "npx jest"],
+	["tsc", "tsc", "npx tsc"],
+	["eslint", "eslint", "npx eslint"],
+	["npm/pnpm install", "npm install", "npm ci", "pnpm install", "pnpm i"],
+	["npm/pnpm run", "npm run", "pnpm run", "pnpm exec"],
+	["git", "git "],
+	["grep/rg", "grep ", "rg "],
+	["find", "find "],
+	["cat/head/tail", "cat ", "head ", "tail "],
+	["ls", "ls "],
+	["docker", "docker "],
+	["curl/wget", "curl ", "wget "],
+	["pip", "pip install", "pip3 install"],
+	["cargo", "cargo build", "cargo test", "cargo run"],
+	["go", "go build", "go test", "go run"],
+	["make", "make "],
+];
+
+function classifyCommand(command: string): string {
+	const trimmed = command.trim();
+	for (const [groupName, ...patterns] of COMMAND_GROUPS) {
+		for (const pattern of patterns) {
+			if (trimmed.includes(pattern)) {
+				return groupName;
+			}
+		}
+	}
+	return "other";
+}
+
+function estimateTokens(chars: number): number {
+	return Math.ceil(chars / CHARS_PER_TOKEN);
+}
+
+function formatNumber(n: number): string {
+	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+	if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+	return String(n);
+}
+
+function formatBytes(chars: number): string {
+	if (chars >= 1_048_576) return `${(chars / 1_048_576).toFixed(1)}MB`;
+	if (chars >= 1_024) return `${(chars / 1_024).toFixed(1)}KB`;
+	return `${chars}B`;
+}
+
+export default function (pi: ExtensionAPI) {
+	let records: BashRecord[] = [];
+	// Map of toolCallId -> command, to correlate call with result
+	const pendingCalls = new Map<string, string>();
+
+	// Restore state from session
+	pi.on("session_start", async (_event, ctx) => {
+		records = [];
+		for (const entry of ctx.sessionManager.getEntries()) {
+			if (entry.type === "custom" && entry.customType === "bash-token-tracker") {
+				// Each entry stores the full records array
+				records = (entry.data as { records: BashRecord[] })?.records ?? [];
+			}
+		}
+		updateWidget(ctx);
+	});
+
+	// Capture the command on tool_call
+	pi.on("tool_call", async (event, _ctx) => {
+		if (isToolCallEventType("bash", event)) {
+			pendingCalls.set(event.toolCallId, event.input.command);
+		}
+	});
+
+	// Capture output on tool_result
+	pi.on("tool_result", async (event, ctx) => {
+		if (!isBashToolResult(event)) return;
+
+		const command = pendingCalls.get(event.toolCallId) ?? (event.input as { command?: string }).command ?? "<unknown>";
+		pendingCalls.delete(event.toolCallId);
+
+		// Calculate output size from content
+		let outputChars = 0;
+		for (const part of event.content) {
+			if (part.type === "text") {
+				outputChars += part.text.length;
+			}
+		}
+
+		const record: BashRecord = {
+			timestamp: Date.now(),
+			command,
+			outputChars,
+			estimatedTokens: estimateTokens(outputChars),
+			truncated: !!event.details?.truncation?.truncated,
+			isError: event.isError,
+		};
+
+		records.push(record);
+
+		// Persist state
+		pi.appendEntry("bash-token-tracker", { records: [...records] });
+
+		updateWidget(ctx);
+	});
+
+	function updateWidget(ctx: { ui?: any; hasUI?: boolean }) {
+		if (!(ctx as any).hasUI) return;
+
+		if (records.length === 0) {
+			ctx.ui?.setWidget("bash-tracker", undefined);
+			return;
+		}
+
+		const totalTokens = records.reduce((sum, r) => sum + r.estimatedTokens, 0);
+		const totalChars = records.reduce((sum, r) => sum + r.outputChars, 0);
+
+		const line = `🔍 Bash: ${records.length} calls | ~${formatNumber(totalTokens)} tokens | ${formatBytes(totalChars)} output`;
+		ctx.ui?.setWidget("bash-tracker", [line]);
+	}
+
+	// /bash-stats command - show aggregated stats
+	pi.registerCommand("bash-stats", {
+		description: "Show bash command token usage statistics",
+		handler: async (args, ctx) => {
+			if (records.length === 0) {
+				ctx.ui.notify("No bash commands recorded yet.", "info");
+				return;
+			}
+
+			const mode = args?.trim() || "group";
+
+			if (mode === "all") {
+				// Show all individual commands
+				const lines: string[] = ["═══ Bash Token Usage (All Commands) ═══", ""];
+
+				for (const r of records) {
+					const time = new Date(r.timestamp).toLocaleTimeString();
+					const cmd = r.command.length > 80 ? r.command.slice(0, 77) + "..." : r.command;
+					const flags = [
+						r.truncated ? "TRUNCATED" : "",
+						r.isError ? "ERROR" : "",
+					]
+						.filter(Boolean)
+						.join(" ");
+					lines.push(`[${time}] ~${formatNumber(r.estimatedTokens)} tokens (${formatBytes(r.outputChars)}) ${flags}`);
+					lines.push(`  $ ${cmd}`);
+					lines.push("");
+				}
+
+				const totalTokens = records.reduce((sum, r) => sum + r.estimatedTokens, 0);
+				lines.push(`Total: ${records.length} commands | ~${formatNumber(totalTokens)} tokens`);
+
+				ctx.ui.notify(lines.join("\n"), "info");
+			} else if (mode === "top") {
+				// Show top 10 by token count
+				const sorted = [...records].sort((a, b) => b.estimatedTokens - a.estimatedTokens).slice(0, 10);
+				const lines: string[] = ["═══ Top 10 Bash Commands by Token Output ═══", ""];
+
+				for (let i = 0; i < sorted.length; i++) {
+					const r = sorted[i];
+					const cmd = r.command.length > 70 ? r.command.slice(0, 67) + "..." : r.command;
+					lines.push(`${i + 1}. ~${formatNumber(r.estimatedTokens)} tokens — $ ${cmd}`);
+				}
+
+				ctx.ui.notify(lines.join("\n"), "info");
+			} else {
+				// Group mode (default)
+				const groups = new Map<string, { count: number; totalTokens: number; totalChars: number; commands: string[] }>();
+
+				for (const r of records) {
+					const group = classifyCommand(r.command);
+					const existing = groups.get(group) || { count: 0, totalTokens: 0, totalChars: 0, commands: [] };
+					existing.count++;
+					existing.totalTokens += r.estimatedTokens;
+					existing.totalChars += r.outputChars;
+					if (existing.commands.length < 3) {
+						const cmd = r.command.length > 60 ? r.command.slice(0, 57) + "..." : r.command;
+						existing.commands.push(cmd);
+					}
+					groups.set(group, existing);
+				}
+
+				// Sort by total tokens descending
+				const sorted = [...groups.entries()].sort((a, b) => b[1].totalTokens - a[1].totalTokens);
+
+				const lines: string[] = ["═══ Bash Token Usage by Group ═══", ""];
+				const totalTokens = records.reduce((sum, r) => sum + r.estimatedTokens, 0);
+
+				for (const [group, data] of sorted) {
+					const pct = ((data.totalTokens / totalTokens) * 100).toFixed(1);
+					lines.push(`▸ ${group}: ~${formatNumber(data.totalTokens)} tokens (${pct}%) — ${data.count} calls, ${formatBytes(data.totalChars)}`);
+					for (const cmd of data.commands) {
+						lines.push(`    $ ${cmd}`);
+					}
+					lines.push("");
+				}
+
+				lines.push(`Total: ${records.length} commands | ~${formatNumber(totalTokens)} tokens`);
+
+				ctx.ui.notify(lines.join("\n"), "info");
+			}
+		},
+	});
+
+	// /bash-stats-reset command
+	pi.registerCommand("bash-stats-reset", {
+		description: "Reset bash token tracking data",
+		handler: async (_args, ctx) => {
+			const count = records.length;
+			records = [];
+			pi.appendEntry("bash-token-tracker", { records: [] });
+			updateWidget(ctx);
+			ctx.ui.notify(`Cleared ${count} bash records.`, "info");
+		},
+	});
+
+	// /bash-stats-export command — dump to a JSON file
+	pi.registerCommand("bash-stats-export", {
+		description: "Export bash token tracking data to a JSON file",
+		handler: async (_args, ctx) => {
+			if (records.length === 0) {
+				ctx.ui.notify("No data to export.", "info");
+				return;
+			}
+
+			const filename = `.pi/bash-stats-${Date.now()}.json`;
+			const data = {
+				exported: new Date().toISOString(),
+				summary: {
+					totalCommands: records.length,
+					totalTokens: records.reduce((s, r) => s + r.estimatedTokens, 0),
+					totalChars: records.reduce((s, r) => s + r.outputChars, 0),
+				},
+				records,
+			};
+
+			const fs = await import("node:fs");
+			const path = await import("node:path");
+			const fullPath = path.resolve(ctx.cwd, filename);
+			fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+			fs.writeFileSync(fullPath, JSON.stringify(data, null, 2));
+
+			ctx.ui.notify(`Exported ${records.length} records to ${filename}`, "info");
+		},
+	});
+}
