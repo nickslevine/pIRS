@@ -30,7 +30,7 @@ interface BashRecord {
 // Each entry: [groupName, ...matchPatterns]
 // A pattern matches if the command contains it as a substring.
 const COMMAND_GROUPS: [string, ...string[]][] = [
-	["pytest", "pytest", "python3 -m pytest", "python -m pytest"],
+	["pytest", "pytest", "python3 -m pytest", "python -m pytest", "uv run pytest", "uv run python -m pytest"],
 	["vitest", "vitest"],
 	["jest", "jest"],
 	["tsc", "tsc"],
@@ -38,6 +38,8 @@ const COMMAND_GROUPS: [string, ...string[]][] = [
 	["npm install", "npm install", "npm ci", "pnpm install", "pnpm i", "bun install", "bun add"],
 	["npm run", "npm run", "pnpm run", "pnpm exec", "bun run"],
 	["npm", "npm ", "pnpm ", "bun "],
+	["pip", "pip install", "pip3 install", "uv add", "uv pip install", "uv pip compile", "uv pip sync"],
+	["uv", "uv run", "uv sync", "uv lock", "uv venv", "uv init", "uv remove", "uv tree", "uv "],
 	["git", "git "],
 	["grep/rg", "grep ", "rg "],
 	["find", "find "],
@@ -46,7 +48,6 @@ const COMMAND_GROUPS: [string, ...string[]][] = [
 	["file ops", "cp ", "mv ", "mkdir ", "rm ", "rmdir ", "chmod ", "chown ", "ln ", "touch "],
 	["docker", "docker "],
 	["curl/wget", "curl ", "wget "],
-	["pip", "pip install", "pip3 install"],
 	["cargo", "cargo build", "cargo test", "cargo run"],
 	["go", "go build", "go test", "go run"],
 	["make", "make "],
@@ -75,7 +76,7 @@ function classifyCommand(command: string): string {
 	const base = extractBaseCommand(command);
 
 	// Dynamic grouping for npx/bunx — each subcommand gets its own group
-	for (const runner of ["npx", "bunx"]) {
+	for (const runner of ["npx", "bunx", "uvx"]) {
 		if (base.startsWith(`${runner} `)) {
 			const sub = extractRunnerCommand(base, runner);
 			if (sub) return `${runner} ${sub}`;
