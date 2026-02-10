@@ -173,7 +173,7 @@ export default function (pi: ExtensionAPI) {
 				return;
 			}
 
-			const mode = args?.trim() || "group";
+			const mode = args?.trim() || "summary";
 
 			if (mode === "all") {
 				// Show all individual commands
@@ -210,7 +210,8 @@ export default function (pi: ExtensionAPI) {
 
 				ctx.ui.notify(lines.join("\n"), "info");
 			} else {
-				// Group mode (default)
+				// Summary (default) or groups (with example commands)
+				const showCommands = mode === "groups";
 				const groups = new Map<string, { count: number; totalTokens: number; totalChars: number; commands: string[] }>();
 
 				for (const r of records) {
@@ -219,7 +220,7 @@ export default function (pi: ExtensionAPI) {
 					existing.count++;
 					existing.totalTokens += r.estimatedTokens;
 					existing.totalChars += r.outputChars;
-					if (existing.commands.length < 3) {
+					if (showCommands && existing.commands.length < 3) {
 						const cmd = r.command.length > 60 ? r.command.slice(0, 57) + "..." : r.command;
 						existing.commands.push(cmd);
 					}
@@ -229,18 +230,22 @@ export default function (pi: ExtensionAPI) {
 				// Sort by total tokens descending
 				const sorted = [...groups.entries()].sort((a, b) => b[1].totalTokens - a[1].totalTokens);
 
-				const lines: string[] = [`${c.bold}${c.cyan}═══ Bash Token Usage by Group ═══${c.reset}`, ""];
+				const title = showCommands ? "Bash Token Usage by Group" : "Bash Token Usage";
+				const lines: string[] = [`${c.bold}${c.cyan}═══ ${title} ═══${c.reset}`, ""];
 				const totalTokens = records.reduce((sum, r) => sum + r.estimatedTokens, 0);
 
 				for (const [group, data] of sorted) {
 					const pct = ((data.totalTokens / totalTokens) * 100).toFixed(1);
 					lines.push(`${c.bold}${c.magenta}▸ ${group}:${c.reset} ~${c.yellow}${formatNumber(data.totalTokens)}${c.reset} tokens ${c.grey}(${pct}%)${c.reset} — ${c.cyan}${data.count}${c.reset} calls, ${c.green}${formatBytes(data.totalChars)}${c.reset}`);
-					for (const cmd of data.commands) {
-						lines.push(`    ${c.green}$${c.reset} ${c.white}${cmd}${c.reset}`);
+					if (showCommands) {
+						for (const cmd of data.commands) {
+							lines.push(`    ${c.green}$${c.reset} ${c.white}${cmd}${c.reset}`);
+						}
+						lines.push("");
 					}
-					lines.push("");
 				}
 
+				if (!showCommands) lines.push("");
 				lines.push(`${c.bold}${c.white}Total:${c.reset} ${c.cyan}${records.length}${c.reset} commands | ~${c.yellow}${formatNumber(totalTokens)}${c.reset} tokens`);
 
 				ctx.ui.notify(lines.join("\n"), "info");

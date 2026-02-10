@@ -33,7 +33,8 @@ npx pi-pirs --remove
 
 | Command | Description |
 |---------|-------------|
-| `/pirs` | Show token usage grouped by command type (default) |
+| `/pirs` | Show compact token usage summary by group (default) |
+| `/pirs groups` | Show grouped usage with example commands |
 | `/pirs all` | Show all individual commands with timestamps |
 | `/pirs top` | Show top 10 commands by token output |
 | `/pirs-reset` | Clear all tracking data |
