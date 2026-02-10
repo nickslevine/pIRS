@@ -7,7 +7,7 @@ Every time the AI runs a bash command, pIRS records the output size, estimates t
 ## Installation
 
 ```bash
-pi install npm:pirs
+pi install npm:pi-pirs
 ```
 
 Or install via git:
@@ -19,7 +19,7 @@ pi install https://github.com/nickslevine/pIRS
 To remove:
 
 ```bash
-npx pirs --remove
+npx pi-pirs --remove
 ```
 
 ## Features

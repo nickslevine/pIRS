@@ -25,9 +25,9 @@ if (isHelp) {
 pIRS - Pi extension for tracking bash command token usage
 
 Usage:
-  npx pirs          Install the extension
-  npx pirs --remove Remove the extension
-  npx pirs --help   Show this help
+  npx pi-pirs          Install the extension
+  npx pi-pirs --remove Remove the extension
+  npx pi-pirs --help   Show this help
 
 Installation directory: ${EXTENSION_DIR}
 `);
@@ -64,7 +64,7 @@ if (fs.existsSync(EXTENSION_DIR)) {
 			console.log("\n✓ pIRS updated");
 		} catch (err) {
 			console.error("Failed to update. Try removing and reinstalling:");
-			console.error("  npx pirs --remove && npx pirs");
+			console.error("  npx pi-pirs --remove && npx pi-pirs");
 			process.exit(1);
 		}
 	} else {

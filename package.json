@@ -1,5 +1,5 @@
 {
-  "name": "pirs",
+  "name": "pi-pirs",
   "version": "1.0.0",
   "description": "Pi extension that tracks bash tool token usage with stats, grouping, and export",
   "author": "nlevine",
@@ -22,7 +22,7 @@
     "monitoring"
   ],
   "bin": {
-    "pirs": "install.mjs"
+    "pi-pirs": "install.mjs"
   },
   "files": [
     "*.ts",
