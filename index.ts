@@ -78,6 +78,21 @@ function formatBytes(chars: number): string {
 	return `${chars}B`;
 }
 
+// ANSI color helpers
+const c = {
+	reset: "\x1b[0m",
+	bold: "\x1b[1m",
+	dim: "\x1b[2m",
+	white: "\x1b[97m",
+	cyan: "\x1b[36m",
+	yellow: "\x1b[33m",
+	green: "\x1b[32m",
+	red: "\x1b[31m",
+	magenta: "\x1b[35m",
+	blue: "\x1b[34m",
+	grey: "\x1b[90m",
+};
+
 export default function (pi: ExtensionAPI) {
 	let records: BashRecord[] = [];
 	// Map of toolCallId -> command, to correlate call with result
@@ -145,7 +160,7 @@ export default function (pi: ExtensionAPI) {
 		const totalTokens = records.reduce((sum, r) => sum + r.estimatedTokens, 0);
 		const totalChars = records.reduce((sum, r) => sum + r.outputChars, 0);
 
-		const line = `🔍 Bash: ${records.length} calls | ~${formatNumber(totalTokens)} tokens | ${formatBytes(totalChars)} output`;
+		const line = `🔍 ${c.bold}${c.white}Bash:${c.reset} ${c.cyan}${records.length}${c.reset} calls | ~${c.yellow}${formatNumber(totalTokens)}${c.reset} tokens | ${c.green}${formatBytes(totalChars)}${c.reset} output`;
 		ctx.ui?.setWidget("bash-tracker", [line]);
 	}
 
@@ -162,35 +177,35 @@ export default function (pi: ExtensionAPI) {
 
 			if (mode === "all") {
 				// Show all individual commands
-				const lines: string[] = ["═══ Bash Token Usage (All Commands) ═══", ""];
+				const lines: string[] = [`${c.bold}${c.cyan}═══ Bash Token Usage (All Commands) ═══${c.reset}`, ""];
 
 				for (const r of records) {
 					const time = new Date(r.timestamp).toLocaleTimeString();
 					const cmd = r.command.length > 80 ? r.command.slice(0, 77) + "..." : r.command;
 					const flags = [
-						r.truncated ? "TRUNCATED" : "",
-						r.isError ? "ERROR" : "",
+						r.truncated ? `${c.red}TRUNCATED${c.reset}` : "",
+						r.isError ? `${c.red}ERROR${c.reset}` : "",
 					]
 						.filter(Boolean)
 						.join(" ");
-					lines.push(`[${time}] ~${formatNumber(r.estimatedTokens)} tokens (${formatBytes(r.outputChars)}) ${flags}`);
-					lines.push(`  $ ${cmd}`);
+					lines.push(`${c.grey}[${time}]${c.reset} ~${c.yellow}${formatNumber(r.estimatedTokens)}${c.reset} tokens ${c.grey}(${formatBytes(r.outputChars)})${c.reset} ${flags}`);
+					lines.push(`  ${c.green}$${c.reset} ${c.white}${cmd}${c.reset}`);
 					lines.push("");
 				}
 
 				const totalTokens = records.reduce((sum, r) => sum + r.estimatedTokens, 0);
-				lines.push(`Total: ${records.length} commands | ~${formatNumber(totalTokens)} tokens`);
+				lines.push(`${c.bold}${c.white}Total:${c.reset} ${c.cyan}${records.length}${c.reset} commands | ~${c.yellow}${formatNumber(totalTokens)}${c.reset} tokens`);
 
 				ctx.ui.notify(lines.join("\n"), "info");
 			} else if (mode === "top") {
 				// Show top 10 by token count
 				const sorted = [...records].sort((a, b) => b.estimatedTokens - a.estimatedTokens).slice(0, 10);
-				const lines: string[] = ["═══ Top 10 Bash Commands by Token Output ═══", ""];
+				const lines: string[] = [`${c.bold}${c.cyan}═══ Top 10 Bash Commands by Token Output ═══${c.reset}`, ""];
 
 				for (let i = 0; i < sorted.length; i++) {
 					const r = sorted[i];
 					const cmd = r.command.length > 70 ? r.command.slice(0, 67) + "..." : r.command;
-					lines.push(`${i + 1}. ~${formatNumber(r.estimatedTokens)} tokens — $ ${cmd}`);
+					lines.push(`${c.bold}${c.white}${i + 1}.${c.reset} ~${c.yellow}${formatNumber(r.estimatedTokens)}${c.reset} tokens — ${c.green}$${c.reset} ${c.white}${cmd}${c.reset}`);
 				}
 
 				ctx.ui.notify(lines.join("\n"), "info");
@@ -214,19 +229,19 @@ export default function (pi: ExtensionAPI) {
 				// Sort by total tokens descending
 				const sorted = [...groups.entries()].sort((a, b) => b[1].totalTokens - a[1].totalTokens);
 
-				const lines: string[] = ["═══ Bash Token Usage by Group ═══", ""];
+				const lines: string[] = [`${c.bold}${c.cyan}═══ Bash Token Usage by Group ═══${c.reset}`, ""];
 				const totalTokens = records.reduce((sum, r) => sum + r.estimatedTokens, 0);
 
 				for (const [group, data] of sorted) {
 					const pct = ((data.totalTokens / totalTokens) * 100).toFixed(1);
-					lines.push(`▸ ${group}: ~${formatNumber(data.totalTokens)} tokens (${pct}%) — ${data.count} calls, ${formatBytes(data.totalChars)}`);
+					lines.push(`${c.bold}${c.magenta}▸ ${group}:${c.reset} ~${c.yellow}${formatNumber(data.totalTokens)}${c.reset} tokens ${c.grey}(${pct}%)${c.reset} — ${c.cyan}${data.count}${c.reset} calls, ${c.green}${formatBytes(data.totalChars)}${c.reset}`);
 					for (const cmd of data.commands) {
-						lines.push(`    $ ${cmd}`);
+						lines.push(`    ${c.green}$${c.reset} ${c.white}${cmd}${c.reset}`);
 					}
 					lines.push("");
 				}
 
-				lines.push(`Total: ${records.length} commands | ~${formatNumber(totalTokens)} tokens`);
+				lines.push(`${c.bold}${c.white}Total:${c.reset} ${c.cyan}${records.length}${c.reset} commands | ~${c.yellow}${formatNumber(totalTokens)}${c.reset} tokens`);
 
 				ctx.ui.notify(lines.join("\n"), "info");
 			}

@@ -1,6 +1,6 @@
 {
   "name": "pi-pirs",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Pi extension that tracks bash tool token usage with stats, grouping, and export",
   "author": "nlevine",
   "license": "MIT",
